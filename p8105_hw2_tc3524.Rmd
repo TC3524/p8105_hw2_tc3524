@@ -1,0 +1,260 @@
+---
+title: "Hw2"
+author: "Hubert Chang"
+date: "2026-10-06"
+output: github_document
+---
+
+#Problem 0 set up
+```{r}
+library (tidyverse)
+library (readxl)
+```
+
+#Problem 1
+```{r}
+nytransit = read.csv("data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv") |>
+  janitor::clean_names()|>
+  select (line, station_name, station_latitude, station_longitude, route1:route11, entrance_type, entry, vending, ada) |>
+  
+  mutate(
+    entry = recode_values(
+      entry,
+      "YES" ~ TRUE,
+      "NO" ~ FALSE
+    )
+  )
+
+```
+The dataset contains information on the subway line, station name, the station's latitude and longitude, the routes from 1 to 11, the type of entrances, and if you can have entry, whether it has a vending machine and if it is ada compliant.
+The data have 1868 observations with 19 variables. 
+The data can be tidied up more because route 1 - 11 all have their own column with a lot of missing data. 
+
+How many distinct stations are there? Note that stations are identified both by name and by line (e.g. 125th St 8th Avenue; 125st Broadway; 125st Lenox); the distinct function may be useful here.
+
+```{r}
+nytransit |>
+  distinct(line, station_name) |>
+  nrow()
+```
+There are 465 distinct stations.
+
+How many stations are ADA compliant?
+```{r}
+nytransit |>
+  distinct(line, station_name, ada) |>
+  filter (ada == TRUE) |>
+  nrow()
+```
+84 stations are ADA compliant
+
+
+What proportion of station entrances / exits without vending allow entrance?
+```{r}
+nytransit|>
+  filter( vending == "NO" ) |>
+  pull (entry) |>
+  mean()
+```
+About 37.70 % of the station entrance/ exits is without a vending
+
+
+#Reforming data 
+
+```{r}
+nytransit_clean =
+  nytransit |>
+  mutate (
+    across (
+      route1:route11, as.character)) |>
+  pivot_longer(
+    cols = route1:route11,
+    names_to = "route_number",
+    names_prefix = "route",
+    values_to = "route_name"
+  )
+```
+
+How many distinct stations serve the A train? 
+```{r}
+nytransit_clean |>
+  filter(route_name == "A") |>
+  distinct(line, station_name)|>
+  nrow()
+```
+60 distinct stations
+
+Of the stations that serve the A train, how many are ADA compliant?
+
+```{r}
+nytransit_clean |>
+  filter(route_name == "A", ada == "TRUE") |>
+  distinct(line, station_name)|>
+  nrow()
+```
+17 stations are ADA compliant.
+
+#Problem 2
+
+Mr Trash Wheel
+```{r}
+trashwheel =
+  read_excel("data/202610 Trash Wheel Collection Data.xlsx",
+            sheet = "Mr. Trash Wheel",
+            skip = 1,
+            na = c("NA", ".", "") 
+            ) |>
+  janitor :: clean_names() |>
+  drop_na(dumpster) |>
+  mutate(
+    sports_balls = as.integer (
+      round(sports_balls)
+    )) |>
+  
+  mutate(
+    year = as.numeric(year), wheel_name = "Mr. Trash Wheel"
+  )
+```
+Professor Trash Wheel
+```{r}
+profwheel = read_excel("data/202610 Trash Wheel Collection Data.xlsx",
+            sheet = "Professor Trash Wheel",
+            skip = 1,
+            na = c("NA", ".", "") 
+            ) |>
+  janitor :: clean_names() |>
+  drop_na(dumpster) |>
+
+ mutate(
+    year = as.numeric(year), wheel_name = "Professor Trash Wheel" 
+  ) |>
+  
+  mutate(
+    plastic_bottles = as.numeric(plastic_bottles)
+  )
+```
+
+Gwynnda Trash Wheel
+
+```{r}
+gwynndawheel = read_excel("data/202610 Trash Wheel Collection Data.xlsx",
+            sheet = "Gwynnda the Good Wheel of the W",
+            skip = 1,
+            na = c("NA", ".", "") 
+            ) |>
+  janitor :: clean_names() |>
+  drop_na(dumpster) |>
+  
+  mutate(
+    year = as.numeric(year), wheel_name = "Gwynnda"
+  )
+```
+
+Combining the three
+```{r}
+trashwheel_tidy =
+  bind_rows (trashwheel, profwheel, gwynndawheel) |>
+  janitor::clean_names() |>
+  relocate (wheel_name)
+```
+
+
+The combined trash wheel have `r nrow(trashwheel_tidy)` observations. It also have `r ncol(trashwheel_tidy)` variables. Main variables in the document contains wheel_name, dumpster, month, year, date, weight_tons, volume_cubic_yards, plastic_bottles,polystyrene, cigarette_butts, glass_bottles, plastic_bags, wrappers, sports_balls, homes_powered
+
+```{r}
+prof_weight = 
+  trashwheel_tidy |>
+  filter (wheel_name == "Professor Trash Wheel") |>
+  pull (weight_tons) |>
+  sum (na.rm = TRUE)
+```
+
+
+Professor Trash Wheel collected `r round(prof_weight)` tons
+```{r}
+gwynnda_cig = 
+  trashwheel_tidy |>
+  filter(wheel_name == "Gwynnda", month == "June", year == 2022) |>
+  pull(cigarette_butts) |>
+  sum (na.rm = TRUE)
+```
+  
+
+Gwynnda collected `r format(gwynnda_cig) ` cigarette butts in June of 2022
+
+
+#Problem 3
+
+```{r}
+mci_df= read.csv("data_mci/data_mci/MCI_baseline.csv",
+  na = c("NA", ".", ""),
+  skip = 1 
+                ) |>
+janitor :: clean_names() 
+```
+
+```{r}
+mci_data = 
+  mci_df |>
+  
+mutate(
+  sex = recode_values(
+      sex,
+      1 ~ "Male",
+      0 ~ "Female"
+    ),
+  apoe4 = recode_values(
+      apoe4,
+      1 ~ "APOE4 Carrier",
+      0 ~ "APOE4 NON-Carrier"
+    )
+      )  |> #converting from numbers to characters
+
+filter(is.na(age_at_onset | age_at_onset > current_age)) #removing MCI onset before study baseline
+```
+
+The baseline file had a note above, so we have to remove that with skip = 1, I also removed any data that had response with NA, . , or blank. And then I recoded the values from numbers in sex and apoe4 from 1/0 to characters (male/female) (apoe carrier or not).Lastly, I removed anyone who had MCI onset before basline age.
+
+```{r}
+mci_women = 
+  mci_data |>
+  filter (sex == "Female") |>
+  mutate ( carrier = apoe4 == "APOE4 Carrier") |>
+  pull (carrier) |>
+  mean()
+```
+
+`r nrow(mci_df)` participants recruited and of those `r filter(mci_df, !is.na(age_at_onset)) |> nrow()` developed MCI. The average baseline age is `r mean(pull(mci_data, current_age))` years old. Among the study of women about `r round(100*mci_women)`% are APOE4 carriers
+
+
+```{r}
+amyloid_df = read.csv("data_mci/data_mci/mci_amyloid.csv",
+  na = c("NA", ".", ""),
+  skip = 1) |>
+  janitor:: clean_names() |>
+  rename(id = study_id) 
+```
+
+I pulled the data from the mci_amyloid.csv file, then I removed any missing data that had "NA", ".", or blank. I also had to skip the first line because it is just headder. Then I used janitor to clean the file and then renamed study_id to id so it matches with the baseline file. 
+
+```{r}
+  anti_join(mci_data, amyloid_df, by = "id") 
+```
+There are 5 people that are in baseline list but not amyloid 
+
+```{r}
+  anti_join(amyloid_df, mci_data, by = "id")
+```
+There are 106 people that are in amyloid but not in baseline
+
+```{r}
+mci_combined = 
+  inner_join(mci_data, amyloid_df, by = "id")
+```
+
+There are 381 observations and 11 variables left in the combined file.
+
+```{r}
+write_csv(mci_combined, "data_mci/mci_combined.csv")
+```
+
