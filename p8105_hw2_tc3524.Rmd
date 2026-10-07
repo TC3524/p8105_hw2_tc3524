@@ -101,6 +101,7 @@ Mr Trash Wheel
 trashwheel =
   read_excel("data/202610 Trash Wheel Collection Data.xlsx",
             sheet = "Mr. Trash Wheel",
+            range = cell_cols("A:N"),
             skip = 1,
             na = c("NA", ".", "") 
             ) |>
